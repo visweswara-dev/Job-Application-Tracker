@@ -1,3 +1,4 @@
+
 const addJobBtn = document.getElementById("add-job-btn");
 const formSection = document.getElementById("job-form-section");
 const jobForm = document.getElementById("job-form");
@@ -7,9 +8,16 @@ const searchInput = document.getElementById("search");
 const filterStatus = document.getElementById("filter-status");
 
 let applications = JSON.parse(localStorage.getItem("applications")) || [];
+let editingJobId = null;
 
 // Show application form
 addJobBtn.addEventListener("click", () => {
+    editingJobId = null;
+    jobForm.reset();
+
+    document.querySelector("#job-form button[type='submit']").textContent =
+        "Add Application";
+
     formSection.hidden = false;
     formSection.scrollIntoView({ behavior: "smooth" });
 });
@@ -17,15 +25,15 @@ addJobBtn.addEventListener("click", () => {
 // Cancel application form
 cancelBtn.addEventListener("click", () => {
     jobForm.reset();
+    editingJobId = null;
     formSection.hidden = true;
 });
 
-// Add new application
+// Add or update application
 jobForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
-    const application = {
-        id: Date.now(),
+    const applicationData = {
         company: document.getElementById("company").value.trim(),
         role: document.getElementById("role").value.trim(),
         location: document.getElementById("location").value.trim(),
@@ -33,13 +41,46 @@ jobForm.addEventListener("submit", (event) => {
         date: document.getElementById("date").value
     };
 
-    applications.push(application);
+    if (editingJobId !== null) {
+        applications = applications.map(job =>
+            job.id === editingJobId
+                ? { ...job, ...applicationData }
+                : job
+        );
+    } else {
+        applications.push({
+            id: Date.now(),
+            ...applicationData
+        });
+    }
 
     saveApplications();
     jobForm.reset();
+    editingJobId = null;
     formSection.hidden = true;
+
+    document.querySelector("#job-form button[type='submit']").textContent =
+        "Add Application";
+
     renderApplications();
 });
+
+// Edit application
+function editApplication(job) {
+    editingJobId = job.id;
+
+    document.getElementById("company").value = job.company;
+    document.getElementById("role").value = job.role;
+    document.getElementById("location").value = job.location;
+    document.getElementById("status").value = job.status;
+    document.getElementById("date").value = job.date;
+
+    document.querySelector("#job-form button[type='submit']").textContent =
+        "Save Changes";
+
+    formSection.hidden = false;
+    formSection.scrollIntoView({ behavior: "smooth" });
+}
 
 // Save applications in browser storage
 function saveApplications() {
@@ -61,7 +102,7 @@ function updateStatistics() {
         applications.filter(job => job.status === "Rejected").length;
 }
 
-// Render applications on the dashboard
+// Render applications
 function renderApplications() {
     const searchText = searchInput.value.toLowerCase();
     const selectedStatus = filterStatus.value;
@@ -89,7 +130,6 @@ function renderApplications() {
         const card = document.createElement("div");
         card.className = "job-card";
 
-        // Application details
         const details = document.createElement("div");
 
         const heading = document.createElement("h3");
@@ -101,7 +141,6 @@ function renderApplications() {
 
         details.append(heading, description);
 
-        // Status editing and delete actions
         const actions = document.createElement("div");
         actions.className = "job-details";
 
@@ -123,7 +162,16 @@ function renderApplications() {
             renderApplications();
         });
 
-        // Delete application
+        // Edit button
+        const editButton = document.createElement("button");
+        editButton.className = "edit-btn";
+        editButton.textContent = "Edit";
+
+        editButton.addEventListener("click", () => {
+            editApplication(job);
+        });
+
+        // Delete button
         const deleteButton = document.createElement("button");
         deleteButton.className = "delete-btn";
         deleteButton.textContent = "Delete";
@@ -137,7 +185,7 @@ function renderApplications() {
             renderApplications();
         });
 
-        actions.append(statusSelect, deleteButton);
+        actions.append(statusSelect, editButton, deleteButton);
 
         card.append(details, actions);
         jobList.appendChild(card);
@@ -146,7 +194,7 @@ function renderApplications() {
     updateStatistics();
 }
 
-// Search and filter functionality
+// Search and filter
 searchInput.addEventListener("input", renderApplications);
 filterStatus.addEventListener("change", renderApplications);
 
